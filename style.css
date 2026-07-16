@@ -1,33 +1,24 @@
-/* ── Bảng màu sơn mài ──────────────────────────────────────────
-   sơn then  #16100D   nền nâu đen sâu
-   sơn son   #DA251D   đỏ quốc kỳ
-   vàng lá   #FFCD00   vàng ngôi sao / vàng lá dát
-   ngà       #F0E2C8   chữ ivory ấm
-   khói      #A08D74   chữ phụ, nét mờ
+/* ── Đêm trên biển Đông ───────────────────────────────────────
+   nền đêm   #0A1420   xanh đêm sâu
+   biển      #0E2233
+   ngọc      #7FD1AE   xanh ngọc đất liền
+   vàng lá   #FFCD00   điểm nhấn
+   ngà       #EFE6D0   chữ chính
+   khói biển #8FA3B0   chữ phụ
 ──────────────────────────────────────────────────────────────── */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html, body {
-  height: 100%;
-  overflow: hidden;
-}
+html, body { height: 100%; overflow: hidden; }
 
 body {
   font-family: 'Be Vietnam Pro', system-ui, sans-serif;
-  background:
-    radial-gradient(120% 90% at 50% 30%, #241511 0%, #16100d 55%, #0c0807 100%);
-  color: #f0e2c8;
+  background: #0a1420;
+  color: #efe6d0;
 }
 
-#stage {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  cursor: crosshair;
-}
+#app { position: fixed; inset: 0; }
+#app canvas { display: block; }
 
 /* ── Tiêu đề ── */
 .masthead {
@@ -36,32 +27,30 @@ body {
   left: clamp(20px, 4vw, 56px);
   pointer-events: none;
   user-select: none;
+  z-index: 3;
 }
 
 .eyebrow {
-  font-size: clamp(10px, 1.1vw, 13px);
+  font-size: clamp(10px, 1.05vw, 13px);
   font-weight: 600;
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: #ffcd00;
-  opacity: 0.92;
   margin-bottom: 10px;
 }
 
 .masthead h1 {
-  font-size: clamp(34px, 5vw, 64px);
+  font-size: clamp(34px, 4.6vw, 60px);
   font-weight: 800;
   line-height: 0.95;
   letter-spacing: -0.015em;
-  color: #f0e2c8;
 }
 
 .masthead .sub {
   margin-top: 10px;
-  font-size: clamp(12px, 1.3vw, 15px);
-  font-weight: 400;
+  font-size: clamp(12px, 1.25vw, 15px);
   font-style: italic;
-  color: #a08d74;
+  color: #8fa3b0;
 }
 
 .masthead .sub::before {
@@ -69,101 +58,125 @@ body {
   display: inline-block;
   width: 34px;
   height: 1px;
-  background: #a08d74;
+  background: #8fa3b0;
   opacity: 0.6;
   vertical-align: middle;
   margin-right: 10px;
 }
 
-/* ── Gợi ý thao tác ── */
-.hint {
+/* ── Thẻ thông tin tỉnh ── */
+.card {
   position: fixed;
-  left: 50%;
-  bottom: clamp(16px, 3.5vh, 34px);
-  transform: translateX(-50%);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.06em;
-  color: #a08d74;
-  white-space: nowrap;
-  pointer-events: none;
-  user-select: none;
-  opacity: 0;
-  animation: hint-in 1.2s ease 1.6s forwards;
-}
-
-@keyframes hint-in {
-  to { opacity: 0.85; }
-}
-
-/* ── Bảng tên tỉnh khi chạm ── */
-.readout {
-  position: fixed;
-  right: clamp(20px, 4vw, 56px);
+  left: clamp(20px, 4vw, 56px);
   bottom: clamp(20px, 4.5vh, 48px);
-  text-align: right;
+  width: min(360px, calc(100vw - 40px));
+  padding: 18px 20px 16px;
+  border-radius: 14px;
+  background: rgba(10, 22, 34, 0.78);
+  border: 1px solid rgba(127, 209, 174, 0.18);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  z-index: 3;
   pointer-events: none;
   user-select: none;
   opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transform: translateY(12px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.readout.show {
-  opacity: 1;
-  transform: translateY(0);
-}
+.card.show { opacity: 1; transform: translateY(0); }
 
-.readout-type {
-  display: block;
+.card-type {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: #a08d74;
-  margin-bottom: 4px;
+  color: #8fa3b0;
 }
 
-.readout-name {
-  display: block;
-  font-size: clamp(20px, 2.4vw, 30px);
+.card-name {
+  font-size: clamp(22px, 2.4vw, 30px);
   font-weight: 800;
   color: #ffcd00;
+  margin: 2px 0 10px;
 }
 
-/* ── Không khí ── */
-.vignette {
+.card-landmark {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(127, 209, 174, 0.08);
+  border: 1px solid rgba(127, 209, 174, 0.14);
+}
+
+.card-landmark-icon { color: #7fd1ae; font-size: 11px; }
+
+.card-landmark-title { font-weight: 600; font-size: 15px; color: #efe6d0; }
+
+.card-landmark-desc { font-size: 12.5px; color: #8fa3b0; margin-top: 2px; }
+
+.card-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #8fa3b0;
+}
+
+.card-facts span:empty { display: none; }
+
+/* ── Gợi ý ── */
+.hint {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(14px, 3vh, 28px);
+  transform: translateX(-50%);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #8fa3b0;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  z-index: 3;
+  opacity: 0;
+  animation: hint-in 1.2s ease 2.2s forwards;
+}
+
+@keyframes hint-in { to { opacity: 0.85; } }
+
+/* ── Màn hình chờ ── */
+.loader {
   position: fixed;
   inset: 0;
-  pointer-events: none;
-  background: radial-gradient(115% 100% at 50% 42%, transparent 58%, rgba(6, 4, 3, 0.62) 100%);
+  display: grid;
+  place-items: center;
+  background: #0a1420;
+  z-index: 10;
+  transition: opacity 0.7s ease;
 }
 
-.grain {
-  position: fixed;
-  inset: -50%;
-  width: 200%;
-  height: 200%;
-  pointer-events: none;
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: grain-shift 1.4s steps(4) infinite;
+.loader.done { opacity: 0; pointer-events: none; }
+
+.loader span {
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #8fa3b0;
+  animation: pulse 1.6s ease-in-out infinite;
 }
 
-@keyframes grain-shift {
-  0%   { transform: translate(0, 0); }
-  25%  { transform: translate(-2%, 1.5%); }
-  50%  { transform: translate(1.5%, -2%); }
-  75%  { transform: translate(-1%, -1%); }
-  100% { transform: translate(0, 0); }
-}
+@keyframes pulse { 50% { opacity: 0.35; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .grain { animation: none; }
   .hint { animation: none; opacity: 0.85; }
+  .loader span { animation: none; }
 }
 
 @media (max-width: 640px) {
   .hint { display: none; }
-  .readout { left: 20px; right: 20px; text-align: center; }
+  .card { left: 16px; bottom: 16px; }
 }

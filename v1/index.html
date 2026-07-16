@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Việt Nam — Lá cờ dệt từ tên đất nước</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23DA251D'/%3E%3Cpath fill='%23FFCD00' d='M32 12l4.7 14.4h15.1l-12.2 8.9 4.6 14.4L32 40.8l-12.2 8.9 4.6-14.4-12.2-8.9h15.1z'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="stage" aria-label="Lá cờ Việt Nam ghép từ tên 34 tỉnh, thành, đung đưa theo chuyển động con trỏ"></canvas>
+
+  <header class="masthead">
+    <p class="eyebrow">Lá cờ dệt từ tên 34 tỉnh, thành</p>
+    <h1>VIỆT&nbsp;NAM</h1>
+    <p class="sub">Một dải non sông</p>
+  </header>
+
+  <p class="hint" id="hint">Rê chuột qua lá cờ để gió thổi · nhấp để tạo cơn gió · phím cách để gió lùa từ biên giới</p>
+
+  <aside class="readout" id="readout" aria-live="polite">
+    <span class="readout-type" id="readout-type"></span>
+    <span class="readout-name" id="readout-name"></span>
+  </aside>
+
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
