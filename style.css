@@ -148,6 +148,39 @@ body {
 
 @keyframes hint-in { to { opacity: 0.85; } }
 
+/* ── Watermark holetex.com ── */
+.brand {
+  position: fixed;
+  right: clamp(20px, 4vw, 56px);
+  bottom: clamp(20px, 4.5vh, 48px);
+  z-index: 4;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(10, 22, 34, 0.7);
+  border: 1px solid rgba(255, 205, 0, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #ffcd00;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.brand span { color: #efe6d0; font-weight: 600; }
+
+.brand:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 205, 0, 0.8);
+  box-shadow: 0 8px 26px rgba(255, 205, 0, 0.18);
+}
+
+.brand:focus-visible {
+  outline: 2px solid #ffcd00;
+  outline-offset: 2px;
+}
+
 /* ── Màn hình chờ ── */
 .loader {
   position: fixed;

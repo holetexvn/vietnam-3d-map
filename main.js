@@ -4,6 +4,7 @@ import { PROVINCE_SHAPES } from './province-shapes.js';
 import { LANDMARKS } from './landmarks.js';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const demoMode = new URLSearchParams(location.search).has('demo');
 
 // ── Chiếu tọa độ: kinh/vĩ độ → mặt phẳng (x đông, z nam) ─────
 const LON0 = 106.2, LAT0 = 16.2, SCALE = 9;
@@ -299,6 +300,81 @@ addEventListener('keydown', (e) => {
   if (e.key === 'Escape') flyTo(HOME_POS.clone(), HOME_TARGET.clone());
 });
 
+// ── Chế độ demo: tour tự động Bắc → Nam (?demo=1) ────────────
+// Mỗi điểm dừng: bay tới địa danh, dừng ngắm với camera trôi nhẹ quanh mục tiêu.
+const DEMO_STOPS = [
+  { name: 'Hà Nội',          off: [5, 24, 23], dwell: 2.6 },
+  { name: 'Quảng Ninh',      off: [7, 18, 26], dwell: 2.6 },
+  { name: 'Đà Nẵng',         off: [3, 19, 25], dwell: 2.8 },
+  { name: 'Huế',             off: [4, 22, 23], dwell: 2.4 },
+  // Biển Đông: hai quần đảo thiêng liêng của Tổ quốc
+  { sea: true, pos: [56, 30, 40],  tgt: [50, 1, -2],  dwell: 2.6 },
+  { sea: true, pos: [80, 34, 100], tgt: [72, 1, 55],  dwell: 2.6 },
+  { name: 'TP. Hồ Chí Minh', off: [6, 22, 26], dwell: 2.6 },
+  { name: 'Đồng Tháp',       off: [3, 19, 23], dwell: 2.4 },
+  { name: 'Cà Mau',          off: [4, 19, 24], dwell: 2.6 },
+];
+let demo = null;
+if (demoMode) {
+  demo = { i: -1, phase: 'intro', timer: 1.2 };
+  controls.enabled = false;
+  document.getElementById('hint').style.display = 'none';
+}
+
+function demoStep(dt) {
+  if (!demo) return;
+  demo.timer -= dt;
+  if (demo.phase === 'intro') {
+    if (introT >= 1 && demo.timer <= 0) nextDemoStop();
+    return;
+  }
+  if (demo.phase === 'fly') {
+    if (!flight) { demo.phase = 'dwell'; demo.timer = demo.i < DEMO_STOPS.length ? DEMO_STOPS[demo.i].dwell : 6; }
+    return;
+  }
+  if (demo.phase === 'dwell') {
+    // camera trôi chậm quanh mục tiêu — thêm sức sống cho cảnh tĩnh
+    const tgt = controls.target;
+    const v = camera.position.clone().sub(tgt);
+    v.applyAxisAngle(new THREE.Vector3(0, 1, 0), dt * 0.14);
+    camera.position.copy(tgt).add(v);
+    if (demo.timer <= 0) {
+      if (demo.i >= DEMO_STOPS.length) { // hết outro — trả lại điều khiển
+        demo = null;
+        controls.enabled = true;
+        document.getElementById('hint').style.display = '';
+        return;
+      }
+      nextDemoStop();
+    }
+  }
+}
+
+function nextDemoStop() {
+  demo.i++;
+  demo.phase = 'fly';
+  if (demo.i < DEMO_STOPS.length) {
+    const stop = DEMO_STOPS[demo.i];
+    if (stop.sea) {
+      setHovered(-1);
+      flyTo(new THREE.Vector3(...stop.pos), new THREE.Vector3(...stop.tgt), 2.1);
+      return;
+    }
+    const idx = PROVINCE_SHAPES.findIndex((p) => p.name === stop.name);
+    setHovered(idx);
+    const c = provinceGroups[idx].centroid;
+    flyTo(
+      new THREE.Vector3(c.x + stop.off[0], stop.off[1], c.z + stop.off[2]),
+      new THREE.Vector3(c.x, 2.6, c.z),
+      1.9
+    );
+  } else {
+    // outro: thả tay, kéo về toàn cảnh đất nước
+    setHovered(-1);
+    flyTo(new THREE.Vector3(-24, 150, 130), new THREE.Vector3(4, 0, 4), 3.2);
+  }
+}
+
 // ── Vòng lặp ─────────────────────────────────────────────────
 const clock = new THREE.Clock();
 let introT = reducedMotion ? 1 : 0;
@@ -338,8 +414,10 @@ function animate() {
     posAttr.needsUpdate = true;
   }
 
+  demoStep(dt);
+
   // Hover raycast
-  if (introT >= 0.98 && !flight) {
+  if (!demo && introT >= 0.98 && !flight) {
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(hitMeshes, false);
     setHovered(hits.length ? hits[0].object.userData.provinceIdx : -1);
