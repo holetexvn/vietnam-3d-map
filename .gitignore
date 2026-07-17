@@ -1,4 +1,12 @@
-node_modules/
+# Video demo (giữ ngoài repo — Cloudflare Pages giới hạn 25 MiB/file)
+demo-video/
+*.mp4
+*.webm
+
+# Output khi quay demo
 video-out/
 frames-4k/
-demo-video/
+
+# macOS / Node
+.DS_Store
+node_modules/
