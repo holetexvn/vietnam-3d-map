@@ -324,10 +324,11 @@ addEventListener('pointerdown', (e) => {
     if (demo || journey) return;
     const idx = pickAt(ue.clientX, ue.clientY);
     if (idx >= 0) {
-      // Ghim tỉnh: nổi lên + địa danh hiện và GIỮ NGUYÊN sau khi camera bay tới
+      // Ghim tỉnh: nổi lên + địa danh hiện và GIỮ NGUYÊN sau khi camera bay tới.
+      // Cùng một góc nhìn cố định với chuyến tàu — không đổi hướng nhìn.
       setState(coarsePointer ? -1 : hovered, idx);
       const c = provinceGroups[idx].centroid;
-      flyTo(new THREE.Vector3(c.x + 6, 34, c.z + 26), new THREE.Vector3(c.x, 2, c.z));
+      flyTo(c.clone().add(CAM_OFFSET), new THREE.Vector3(c.x, 2, c.z));
     } else {
       setState(coarsePointer ? -1 : hovered, -1);
       flyTo(HOME_POS.clone(), HOME_TARGET.clone());
@@ -654,17 +655,19 @@ function journeyStep(dt, t) {
 
 // ── Chế độ demo: tour tự động Bắc → Nam (?demo=1) ────────────
 // Mỗi điểm dừng: bay tới địa danh, dừng ngắm với camera trôi nhẹ quanh mục tiêu.
+// MỘT góc nhìn cố định cho mọi điểm dừng (đồng bộ với chuyến tàu) — không xoay
+const DEMO_OFF = [11.5, 18, 20.5];
 const DEMO_STOPS = [
-  { name: 'Hà Nội',          off: [5, 24, 23], dwell: 2.6 },
-  { name: 'Quảng Ninh',      off: [7, 18, 26], dwell: 2.6 },
-  { name: 'Đà Nẵng',         off: [3, 19, 25], dwell: 2.8 },
-  { name: 'Huế',             off: [4, 22, 23], dwell: 2.4 },
+  { name: 'Hà Nội',          off: DEMO_OFF, dwell: 2.6 },
+  { name: 'Quảng Ninh',      off: DEMO_OFF, dwell: 2.6 },
+  { name: 'Đà Nẵng',         off: DEMO_OFF, dwell: 2.8 },
+  { name: 'Huế',             off: DEMO_OFF, dwell: 2.4 },
   // Biển Đông: hai quần đảo thiêng liêng của Tổ quốc
-  { sea: true, pos: [56, 30, 40],  tgt: [50, 1, -2],  dwell: 2.6 },
-  { sea: true, pos: [80, 34, 100], tgt: [72, 1, 55],  dwell: 2.6 },
-  { name: 'TP. Hồ Chí Minh', off: [6, 22, 26], dwell: 2.6 },
-  { name: 'Đồng Tháp',       off: [3, 19, 23], dwell: 2.4 },
-  { name: 'Cà Mau',          off: [4, 19, 24], dwell: 2.6 },
+  { sea: true, pos: [61, 19, 19],  tgt: [50, 1, -2],  dwell: 2.6 },
+  { sea: true, pos: [83, 19, 76],  tgt: [72, 1, 55],  dwell: 2.6 },
+  { name: 'TP. Hồ Chí Minh', off: DEMO_OFF, dwell: 2.6 },
+  { name: 'Đồng Tháp',       off: DEMO_OFF, dwell: 2.4 },
+  { name: 'Cà Mau',          off: DEMO_OFF, dwell: 2.6 },
 ];
 let demo = null;
 if (demoMode) {
@@ -685,11 +688,7 @@ function demoStep(dt) {
     return;
   }
   if (demo.phase === 'dwell') {
-    // camera trôi chậm quanh mục tiêu — thêm sức sống cho cảnh tĩnh
-    const tgt = controls.target;
-    const v = camera.position.clone().sub(tgt);
-    v.applyAxisAngle(new THREE.Vector3(0, 1, 0), dt * 0.14);
-    camera.position.copy(tgt).add(v);
+    // đứng yên hoàn toàn — không orbit, không trôi
     if (demo.timer <= 0) {
       if (demo.i >= DEMO_STOPS.length) { // hết outro — trả lại điều khiển
         demo = null;
