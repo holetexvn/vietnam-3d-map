@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { PROVINCE_SHAPES } from './province-shapes.js';
-import { LANDMARKS } from './landmarks.js';
+import { LANDMARKS, animateLandmark } from './landmarks.js';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const demoMode = new URLSearchParams(location.search).has('demo');
@@ -95,6 +95,13 @@ const DEPTH = 2.1;
 const mapRoot = new THREE.Group();
 scene.add(mapRoot);
 
+// Lớp raycast tĩnh: bản sao hình học đứng yên tại y=0 — tỉnh nổi lên
+// không làm con trỏ "nhảy" sang tỉnh bên cạnh.
+const hitRoot = new THREE.Group();
+hitRoot.visible = false;
+scene.add(hitRoot);
+const proxyMat = new THREE.MeshBasicMaterial();
+
 PROVINCE_SHAPES.forEach((p, idx) => {
   const group = new THREE.Group();
   const isCity = p.type !== 'Tỉnh';
@@ -129,10 +136,13 @@ PROVINCE_SHAPES.forEach((p, idx) => {
     const mesh = new THREE.Mesh(geo, [topMat, sideMat]);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.userData.provinceIdx = idx;
     group.add(mesh);
     meshes.push(mesh);
-    hitMeshes.push(mesh);
+
+    const proxy = new THREE.Mesh(geo, proxyMat);
+    proxy.userData.provinceIdx = idx;
+    hitRoot.add(proxy);
+    hitMeshes.push(proxy);
 
     let area = 0;
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -222,7 +232,10 @@ function showCard(p) {
 // ── Hover & chọn tỉnh ────────────────────────────────────────
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2(-10, -10);
-let hovered = -1;
+// Màn hình cảm ứng: không có hover — chỉ dùng chạm để chọn
+const coarsePointer = matchMedia('(pointer: coarse)').matches;
+let hovered = -1;  // tỉnh dưới con trỏ (chỉ desktop)
+let selected = -1; // tỉnh được ghim khi nhấp/chạm — giữ tới khi chọn nơi khác
 
 function ensureLandmark(entry) {
   if (entry.landmark) return entry.landmark;
@@ -238,30 +251,46 @@ function ensureLandmark(entry) {
   return model;
 }
 
-function setHovered(idx) {
-  if (idx === hovered) return;
-  if (hovered >= 0) {
-    const prev = provinceGroups[hovered];
-    prev.targetY = 0;
-    prev.targetEmissive = 0;
-    if (prev.landmark) prev.landmarkAnim = { t: 0, show: false };
+function activate(pg) {
+  pg.targetY = 1.4;
+  pg.targetEmissive = 0.38;
+  ensureLandmark(pg);
+  if (pg.landmark) {
+    pg.landmark.visible = true;
+    pg.landmarkAnim = { t: 0, show: true };
   }
-  hovered = idx;
-  if (idx >= 0) {
-    const cur = provinceGroups[idx];
-    cur.targetY = 1.4;
-    cur.targetEmissive = 0.38;
-    ensureLandmark(cur);
-    if (cur.landmark) {
-      cur.landmark.visible = true;
-      cur.landmarkAnim = { t: 0, show: true };
-    }
-    showCard(cur.data);
-    document.body.style.cursor = 'pointer';
-  } else {
-    card.classList.remove('show');
-    document.body.style.cursor = '';
-  }
+}
+
+function deactivate(pg) {
+  pg.targetY = 0;
+  pg.targetEmissive = 0;
+  if (pg.landmark) pg.landmarkAnim = { t: 0, show: false };
+}
+
+// Trạng thái hiển thị = hợp của {tỉnh đang hover, tỉnh được ghim}.
+function setState(nextHovered, nextSelected) {
+  if (nextHovered === hovered && nextSelected === selected) return;
+  const was = new Set([hovered, selected].filter((i) => i >= 0));
+  hovered = nextHovered;
+  selected = nextSelected;
+  const now = new Set([hovered, selected].filter((i) => i >= 0));
+  for (const i of was) if (!now.has(i)) deactivate(provinceGroups[i]);
+  for (const i of now) if (!was.has(i)) activate(provinceGroups[i]);
+
+  const cardIdx = hovered >= 0 ? hovered : selected;
+  if (cardIdx >= 0) showCard(provinceGroups[cardIdx].data);
+  else card.classList.remove('show');
+  document.body.style.cursor = hovered >= 0 ? 'pointer' : '';
+}
+
+const setHovered = (idx) => setState(idx, selected);
+
+// Raycast tại một điểm màn hình bất kỳ (dùng cho chạm/nhấp)
+function pickAt(clientX, clientY) {
+  const v = new THREE.Vector2((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(v, camera);
+  const hits = raycaster.intersectObjects(hitMeshes, false);
+  return hits.length ? hits[0].object.userData.provinceIdx : -1;
 }
 
 addEventListener('pointermove', (e) => {
@@ -286,10 +315,15 @@ addEventListener('pointerdown', (e) => {
   const onUp = (ue) => {
     removeEventListener('pointerup', onUp);
     if (Math.hypot(ue.clientX - downAt[0], ue.clientY - downAt[1]) > 6) return; // là drag xoay
-    if (hovered >= 0) {
-      const c = provinceGroups[hovered].centroid;
+    if (demo) return;
+    const idx = pickAt(ue.clientX, ue.clientY);
+    if (idx >= 0) {
+      // Ghim tỉnh: nổi lên + địa danh hiện và GIỮ NGUYÊN sau khi camera bay tới
+      setState(coarsePointer ? -1 : hovered, idx);
+      const c = provinceGroups[idx].centroid;
       flyTo(new THREE.Vector3(c.x + 6, 34, c.z + 26), new THREE.Vector3(c.x, 2, c.z));
     } else {
+      setState(coarsePointer ? -1 : hovered, -1);
       flyTo(HOME_POS.clone(), HOME_TARGET.clone());
     }
   };
@@ -297,7 +331,10 @@ addEventListener('pointerdown', (e) => {
 });
 
 addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') flyTo(HOME_POS.clone(), HOME_TARGET.clone());
+  if (e.key === 'Escape') {
+    setState(coarsePointer ? -1 : hovered, -1);
+    flyTo(HOME_POS.clone(), HOME_TARGET.clone());
+  }
 });
 
 // ── Chế độ demo: tour tự động Bắc → Nam (?demo=1) ────────────
@@ -416,11 +453,20 @@ function animate() {
 
   demoStep(dt);
 
-  // Hover raycast
-  if (!demo && introT >= 0.98 && !flight) {
+  // Hover raycast — chỉ trên thiết bị có con trỏ thật; cảm ứng dùng chạm
+  if (!coarsePointer && !demo && introT >= 0.98 && !flight) {
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(hitMeshes, false);
-    setHovered(hits.length ? hits[0].object.userData.provinceIdx : -1);
+    let idx = hits.length ? hits[0].object.userData.provinceIdx : -1;
+    // Hysteresis: ở biên hai tỉnh (bevel chồng nhau) giữ nguyên tỉnh đang
+    // hover nếu nó vẫn trúng ray gần như cùng khoảng cách — tránh nhấp nháy.
+    if (
+      hovered >= 0 &&
+      hits.some((h) => h.object.userData.provinceIdx === hovered && h.distance - hits[0].distance < 1.2)
+    ) {
+      idx = hovered;
+    }
+    setState(idx, selected);
   }
 
   // Nâng tỉnh + phát sáng
@@ -429,6 +475,9 @@ function animate() {
     pg.group.position.y += (ty - pg.group.position.y) * Math.min(dt * 9, 1);
     const te = pg.targetEmissive ?? 0;
     pg.topMat.emissiveIntensity += (te - pg.topMat.emissiveIntensity) * Math.min(dt * 8, 1);
+
+    // Sinh khí cho địa danh đang hiển thị: cờ phất, thuyền bập bềnh, đèn quét…
+    if (pg.landmark && pg.landmark.visible) animateLandmark(pg.landmark, t);
 
     // Địa danh mọc lên / thu lại
     if (pg.landmark && pg.landmarkAnim) {
@@ -464,4 +513,12 @@ addEventListener('resize', () => {
 });
 
 document.getElementById('loader').classList.add('done');
+window.__dbg = () => ({ introT, hovered, selected, demoActive: !!demo, frame: renderer.info.render.frame });
+window.__buildAll = () =>
+  provinceGroups
+    .map((pg) => {
+      try { ensureLandmark(pg); return null; }
+      catch (e) { return pg.data.name + ': ' + e.message; }
+    })
+    .filter(Boolean);
 animate();

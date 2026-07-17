@@ -43,6 +43,43 @@ const cone = (g, r, h, c, x, y, z, o = {}) =>
 const sph = (g, r, c, x, y, z, o = {}) =>
   add(g, new THREE.SphereGeometry(r, o.seg ?? 10, o.seg ?? 8), c, x, y, z, o);
 
+// ── Hệ thống animation bộ phận ───────────────────────────────
+// Gắn nhãn chuyển động cho một mesh; animateLandmark() chạy mỗi khung hình
+// trên địa danh đang hiển thị. Vật liệu pulse được clone để không lây
+// sang mesh khác dùng chung cache.
+function anim(o, spec) {
+  if (spec.type === 'pulse') {
+    o.material = o.material.clone();
+    spec.base = o.material.emissiveIntensity;
+  }
+  spec.basePos = o.position.clone();
+  spec.baseRot = o.rotation.clone();
+  spec.baseScale = o.scale.clone();
+  spec.phase = spec.phase ?? Math.random() * Math.PI * 2;
+  o.userData.anim = spec;
+  return o;
+}
+
+export function animateLandmark(root, t) {
+  root.traverse((o) => {
+    const a = o.userData.anim;
+    if (!a) return;
+    const s = Math.sin(t * a.speed + a.phase);
+    switch (a.type) {
+      case 'bob':      o.position.y = a.basePos.y + s * a.amp; break;
+      case 'sway':     o.rotation.z = a.baseRot.z + s * a.amp; break;
+      case 'swayX':    o.rotation.x = a.baseRot.x + s * a.amp; break;
+      case 'spin':     o.rotation.y += a.speed * 0.016; break;
+      case 'drift':    o.position.x = a.basePos.x + s * a.amp;
+                       o.position.y = a.basePos.y + Math.sin(t * a.speed * 0.7 + a.phase) * a.amp * 0.4; break;
+      case 'breathe':  o.scale.copy(a.baseScale).multiplyScalar(1 + s * a.amp); break;
+      case 'pulse':    o.material.emissiveIntensity = a.base + (s * 0.5 + 0.5) * a.amp; break;
+      case 'flutter':  o.scale.x = a.baseScale.x * (1 + s * a.amp);
+                       o.rotation.y = a.baseRot.y + Math.sin(t * a.speed * 0.6 + a.phase) * a.amp * 1.6; break;
+    }
+  });
+}
+
 // Mái 4 dốc kiểu Á Đông (chóp 4 cạnh, xoay 45°, hơi bè)
 function roof(g, w, d, h, c, x, y, z) {
   return add(g, new THREE.ConeGeometry(0.71, 1, 4), c, x, y + h / 2, z, {
@@ -50,30 +87,35 @@ function roof(g, w, d, h, c, x, y, z) {
   });
 }
 
-// Cột cờ + lá cờ đỏ
+// Cột cờ + lá cờ đỏ (cờ phất trong gió)
 function flag(g, h, x, z, s = 1) {
   cyl(g, 0.04 * s, 0.05 * s, h, '#c9c2b2', x, h / 2, z, { seg: 6 });
-  box(g, 1.1 * s, 0.7 * s, 0.03, '#d01e2a', x + 0.58 * s, h - 0.42 * s, z, {
-    emissive: '#a00d18', ei: 0.35,
-  });
+  anim(
+    box(g, 1.1 * s, 0.7 * s, 0.03, '#d01e2a', x + 0.58 * s, h - 0.42 * s, z, {
+      emissive: '#a00d18', ei: 0.35,
+    }),
+    { type: 'flutter', amp: 0.09, speed: 5.5 }
+  );
 }
 
 // Cây: thông (chóp), tròn (tán cầu), cau/dừa (thân + lá)
 function tree(g, kind, x, z, s = 1) {
+  const sway = { type: 'sway', amp: 0.05, speed: 1.4 };
   if (kind === 'pine') {
     cyl(g, 0.05 * s, 0.08 * s, 0.5 * s, '#5a4630', x, 0.25 * s, z, { seg: 5 });
-    cone(g, 0.42 * s, 1.15 * s, '#1d5038', x, 1.05 * s, z, { seg: 6 });
+    anim(cone(g, 0.42 * s, 1.15 * s, '#1d5038', x, 1.05 * s, z, { seg: 6 }), { ...sway });
   } else if (kind === 'palm') {
     cyl(g, 0.05 * s, 0.09 * s, 1.25 * s, '#6b5638', x, 0.62 * s, z, { seg: 5 });
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
-      add(g, new THREE.ConeGeometry(0.1 * s, 0.85 * s, 4), '#2c7a4b',
+      anim(add(g, new THREE.ConeGeometry(0.1 * s, 0.85 * s, 4), '#2c7a4b',
         x + Math.cos(a) * 0.3 * s, 1.32 * s, z + Math.sin(a) * 0.3 * s,
-        { rz: Math.cos(a) * 1.25, rx: -Math.sin(a) * 1.25 });
+        { rz: Math.cos(a) * 1.25, rx: -Math.sin(a) * 1.25 }),
+        { type: 'sway', amp: 0.07, speed: 1.8, phase: i });
     }
   } else {
     cyl(g, 0.06 * s, 0.09 * s, 0.45 * s, '#5a4630', x, 0.22 * s, z, { seg: 5 });
-    sph(g, 0.4 * s, '#2c6e45', x, 0.72 * s, z, { seg: 7 });
+    anim(sph(g, 0.4 * s, '#2c6e45', x, 0.72 * s, z, { seg: 7 }), { ...sway });
   }
 }
 
@@ -87,14 +129,17 @@ function karst(g, r, h, x, z, seed = 1) {
 
 // Thuyền: thân cong (trụ dẹt) + buồm tam giác
 function boat(g, x, z, s = 1, hull = '#6b4a2f', sail = '#b8452e') {
-  add(g, new THREE.CylinderGeometry(0.5, 0.32, 0.28, 8), hull, x, 0.14 * s, z, {
+  // cả con thuyền bập bềnh cùng pha trên sóng
+  const phase = Math.random() * Math.PI * 2;
+  const bob = { type: 'bob', amp: 0.07 * s, speed: 1.6, phase };
+  anim(add(g, new THREE.CylinderGeometry(0.5, 0.32, 0.28, 8), hull, x, 0.14 * s, z, {
     sx: 1.6 * s, sy: s, sz: 0.5 * s,
-  });
+  }), { ...bob });
   if (sail) {
-    cyl(g, 0.02, 0.02, 1.1 * s, '#54401f', x, 0.75 * s, z, { seg: 4 });
-    add(g, new THREE.ConeGeometry(0.4 * s, 1 * s, 4), sail, x + 0.2 * s, 0.78 * s, z, {
+    anim(cyl(g, 0.02, 0.02, 1.1 * s, '#54401f', x, 0.75 * s, z, { seg: 4 }), { ...bob });
+    anim(add(g, new THREE.ConeGeometry(0.4 * s, 1 * s, 4), sail, x + 0.2 * s, 0.78 * s, z, {
       rz: -Math.PI / 2, sz: 0.12,
-    });
+    }), { ...bob });
   }
 }
 
@@ -119,8 +164,9 @@ function hanoi() { // Khuê Văn Các
   }
   box(g, 3, 0.28, 3, '#7a4a30', 0, 2.7, 0);
   box(g, 2.2, 1.5, 2.2, '#b03a28', 0, 3.6, 0);
-  // Cửa sổ tròn — hình ảnh "sao Khuê"
-  add(g, new THREE.TorusGeometry(0.5, 0.09, 8, 20), '#e8c15a', 0, 3.65, 1.12, { emissive: '#c9971f', ei: 0.5 });
+  // Cửa sổ tròn — hình ảnh "sao Khuê" tỏa sáng theo nhịp
+  anim(add(g, new THREE.TorusGeometry(0.5, 0.09, 8, 20), '#e8c15a', 0, 3.65, 1.12, { emissive: '#c9971f', ei: 0.5 }),
+    { type: 'pulse', amp: 0.9, speed: 1.6 });
   roof(g, 3.2, 3.2, 1.1, '#4a3527', 0, 4.35, 0);
   roof(g, 1.9, 1.9, 0.85, '#4a3527', 0, 5.3, 0);
   cone(g, 0.14, 0.5, '#e8c15a', 0, 6, 0, { seg: 6, emissive: '#c9971f' });
@@ -137,7 +183,17 @@ function haiphong() { // Cảng + hải đăng Long Châu
     cyl(g, 0.5 - i * 0.07, 0.56 - i * 0.07, 1.1, i % 2 ? '#d8d2c2' : '#c23b2a', -1.7, 1.3 + i * 1.05, -1.4, { seg: 10 });
   }
   cyl(g, 0.42, 0.42, 0.55, '#2b2f36', -1.7, 5.6, -1.4, { seg: 8 });
-  sph(g, 0.3, '#ffe07a', -1.7, 5.62, -1.4, { emissive: '#ffcd00', ei: 2.2 });
+  anim(sph(g, 0.3, '#ffe07a', -1.7, 5.62, -1.4, { emissive: '#ffcd00', ei: 2.2 }),
+    { type: 'pulse', amp: 2, speed: 2.4 });
+  // luồng sáng hải đăng quét vòng quanh đèn
+  const beamPivot = new THREE.Group();
+  beamPivot.position.set(-1.7, 0, -1.4);
+  g.add(beamPivot);
+  const beam = add(beamPivot, new THREE.ConeGeometry(0.45, 3.2, 8, 1, true), '#fff3c0', 1.6, 5.62, 0, {
+    transparent: true, opacity: 0.16, emissive: '#ffe89a', ei: 1.2, rz: Math.PI / 2,
+  });
+  beam.castShadow = false;
+  anim(beamPivot, { type: 'spin', speed: 1.1 });
   cone(g, 0.4, 0.5, '#963c2a', -1.7, 6.1, -1.4, { seg: 8 });
   boat(g, 1.3, 1.2, 1.35, '#39506b', null);
   box(g, 0.9, 0.55, 0.62, '#c23b2a', 1.05, 0.62, 1.2);
@@ -190,10 +246,13 @@ function hcm() { // Landmark 81
   const hts = [3.2, 4.6, 5.8, 7, 6.4, 5.2, 4];
   const xs = [-0.95, -0.62, -0.28, 0.06, 0.4, 0.72, 1.02];
   for (let i = 0; i < hts.length; i++) {
-    box(g, 0.34, hts[i], 1.35 - Math.abs(i - 3) * 0.13, '#41627f', xs[i], hts[i] / 2 + 0.65, 0, glass);
+    // các lớp kính nhấp nháy lệch pha như đèn cửa sổ ban đêm
+    anim(box(g, 0.34, hts[i], 1.35 - Math.abs(i - 3) * 0.13, '#41627f', xs[i], hts[i] / 2 + 0.65, 0, glass),
+      { type: 'pulse', amp: 0.3, speed: 1.3, phase: i * 1.1 });
   }
   cyl(g, 0.03, 0.05, 1.6, '#c9c2b2', 0.06, 8.4, 0, { seg: 5 });
-  sph(g, 0.09, '#ffe07a', 0.06, 9.2, 0, { emissive: '#ffcd00', ei: 2 });
+  anim(sph(g, 0.09, '#ffe07a', 0.06, 9.2, 0, { emissive: '#ffcd00', ei: 2 }),
+    { type: 'pulse', amp: 2.2, speed: 3 });
   box(g, 1.5, 0.5, 1, '#7a5a38', -2.2, 0.25, 0.9);
   roof(g, 1.7, 1.2, 0.5, '#b03a28', -2.2, 0.5, 0.9);
   return g;
@@ -207,10 +266,12 @@ function cantho() { // Chợ nổi Cái Răng
     const x = -1.6 + i * 1.6, z = (i % 2) * 1.6 - 0.8;
     boat(g, x, z, 1.05, '#6b4a2f', null);
     box(g, 0.8, 0.45, 0.42, '#8a6a45', x, 0.5, z);
-    // cây bẹo treo trái
+    // cây bẹo treo trái — trái cây đung đưa theo gió
     cyl(g, 0.025, 0.025, 1.5, '#54401f', x - 0.45, 1.05, z, { seg: 4 });
-    sph(g, 0.14, fruits[i], x - 0.45, 1.85, z, { emissive: fruits[i], ei: 0.25 });
-    sph(g, 0.11, fruits[(i + 1) % 4], x - 0.45, 1.55, z);
+    anim(sph(g, 0.14, fruits[i], x - 0.45, 1.85, z, { emissive: fruits[i], ei: 0.25 }),
+      { type: 'drift', amp: 0.07, speed: 2.1, phase: i });
+    anim(sph(g, 0.11, fruits[(i + 1) % 4], x - 0.45, 1.55, z),
+      { type: 'drift', amp: 0.09, speed: 2.4, phase: i + 1.5 });
   }
   sph(g, 0.35, '#7fb04a', 1.9, 0.28, -1.1, { seg: 7 });
   sph(g, 0.28, '#e8b83a', 2.3, 0.24, -0.6, { seg: 7 });
@@ -242,14 +303,16 @@ function caobang() { // Thác Bản Giốc
     sph(g, 0.5, '#2a5c40', -w / 2 + 0.2, y + 0.15, z, { seg: 6 });
     sph(g, 0.42, '#2a5c40', w / 2 - 0.2, y + 0.12, z, { seg: 6 });
   }
-  // dải nước trắng
+  // dải nước trắng — rung nhẹ như nước đổ
   for (const [x, w] of [[-0.7, 0.55], [0.15, 0.7], [0.95, 0.45]]) {
-    add(g, new THREE.BoxGeometry(w, 2.9, 0.16), '#dff3f0', x, 1.45, -1.05,
-      { emissive: '#bfe8e2', ei: 0.55, rough: 0.3, rx: 0.12 });
+    anim(add(g, new THREE.BoxGeometry(w, 2.9, 0.16), '#dff3f0', x, 1.45, -1.05,
+      { emissive: '#bfe8e2', ei: 0.55, rough: 0.3, rx: 0.12 }),
+      { type: 'pulse', amp: 0.5, speed: 7 });
   }
   for (const [x, z, r] of [[-1.1, 0.6, 0.3], [0.4, 0.8, 0.38], [1.2, 0.4, 0.26]]) {
     const mist = sph(g, r, '#eaf6f3', x, 0.45, z, { transparent: true, opacity: 0.45, seg: 7 });
     mist.castShadow = false;
+    anim(mist, { type: 'bob', amp: 0.12, speed: 1.1 });
   }
   sph(g, 0.6, '#2a5c40', 2.4, 3.1, -2.4, { seg: 6 });
   return g;
@@ -267,8 +330,10 @@ function laichau() { // Đèo Ô Quy Hồ
   }
   const cloud = sph(g, 0.55, '#e8eef2', -1.3, 3.6, 0.1, { transparent: true, opacity: 0.6, seg: 7 });
   cloud.castShadow = false;
+  anim(cloud, { type: 'drift', amp: 0.5, speed: 0.5 });
   const cloud2 = sph(g, 0.4, '#e8eef2', 1.7, 2.9, -0.4, { transparent: true, opacity: 0.55, seg: 7 });
   cloud2.castShadow = false;
+  anim(cloud2, { type: 'drift', amp: 0.4, speed: 0.65 });
   return g;
 }
 
@@ -282,6 +347,7 @@ function laocai() { // Fansipan + ruộng bậc thang
   add(g, new THREE.ConeGeometry(0.22, 0.5, 3), '#b8b2a4', 0, 6.95, -0.4, { metal: 0.5, rough: 0.35 });
   const cl = sph(g, 0.6, '#e8eef2', 1.5, 4.9, 0.4, { transparent: true, opacity: 0.55, seg: 7 });
   cl.castShadow = false;
+  anim(cl, { type: 'drift', amp: 0.55, speed: 0.45 });
   return g;
 }
 
@@ -336,10 +402,11 @@ function sonla() { // Cao nguyên Mộc Châu — đồi chè, hoa mận
     const t = add(g, new THREE.TorusGeometry(1.4 - i * 0.4, 0.05, 6, 24), '#3f7030', -0.9, 0.35 + i * 0.24, 0.4, { rx: Math.PI / 2 });
     t.castShadow = false;
   }
-  // hoa mận trắng
+  // hoa mận trắng đung đưa
   for (const [x, z] of [[0.6, 1.5], [1.3, 0.9], [2.2, 0.2]]) {
     cyl(g, 0.04, 0.06, 0.5, '#5a4630', x, 0.25, z, { seg: 4 });
-    sph(g, 0.32, '#f2ecdd', x, 0.65, z, { seg: 7, emissive: '#d9d2be', ei: 0.2 });
+    anim(sph(g, 0.32, '#f2ecdd', x, 0.65, z, { seg: 7, emissive: '#d9d2be', ei: 0.2 }),
+      { type: 'sway', amp: 0.08, speed: 1.6 });
   }
   return g;
 }
@@ -528,12 +595,17 @@ function daklak() { // Voi Bản Đôn
   add(g, new THREE.SphereGeometry(1.05, 12, 9), '#7d786e', 0, 1.45, 0, { sx: 1.45, sy: 1, sz: 0.95 });
   sph(g, 0.62, '#7d786e', 1.55, 1.75, 0, { seg: 10 });
   for (const s of [-1, 1]) {
-    add(g, new THREE.CylinderGeometry(0.42, 0.42, 0.1, 10), '#6d685e', 1.45, 1.85, s * 0.55, { rx: Math.PI / 2, sy: 1.3 });
+    // tai voi phe phẩy
+    anim(add(g, new THREE.CylinderGeometry(0.42, 0.42, 0.1, 10), '#6d685e', 1.45, 1.85, s * 0.55, { rx: Math.PI / 2, sy: 1.3 }),
+      { type: 'swayX', amp: 0.18, speed: 2.2, phase: s });
   }
-  // vòi cong
-  add(g, new THREE.CylinderGeometry(0.16, 0.13, 0.75, 7), '#7d786e', 2.1, 1.4, 0, { rz: 0.5 });
-  add(g, new THREE.CylinderGeometry(0.13, 0.1, 0.7, 7), '#7d786e', 2.42, 0.85, 0, { rz: 0.15 });
-  add(g, new THREE.CylinderGeometry(0.1, 0.07, 0.5, 7), '#7d786e', 2.4, 0.38, 0, { rz: -0.5 });
+  // vòi cong đung đưa
+  anim(add(g, new THREE.CylinderGeometry(0.16, 0.13, 0.75, 7), '#7d786e', 2.1, 1.4, 0, { rz: 0.5 }),
+    { type: 'sway', amp: 0.08, speed: 1.3, phase: 0 });
+  anim(add(g, new THREE.CylinderGeometry(0.13, 0.1, 0.7, 7), '#7d786e', 2.42, 0.85, 0, { rz: 0.15 }),
+    { type: 'sway', amp: 0.12, speed: 1.3, phase: 0.4 });
+  anim(add(g, new THREE.CylinderGeometry(0.1, 0.07, 0.5, 7), '#7d786e', 2.4, 0.38, 0, { rz: -0.5 }),
+    { type: 'sway', amp: 0.16, speed: 1.3, phase: 0.8 });
   for (const s of [-1, 1]) {
     cone(g, 0.09, 0.55, '#e8e2d0', 1.98, 1.4, s * 0.3, { rx: s * 0.35, rz: -0.9 });
     cyl(g, 0.2, 0.24, 1.1, '#6d685e', 0.6, 0.55, s * 0.5, { seg: 8 });
@@ -589,9 +661,10 @@ function tayninh() { // Tòa thánh Cao Đài + núi Bà Đen
   }
   cyl(g, 0.55, 0.55, 0.9, '#e2d8b8', 0.8, 1.55, 0.35, { seg: 12 });
   sph(g, 0.55, '#3e6e9c', 0.8, 2.2, 0.35, { seg: 10 });
-  // Thiên nhãn
-  add(g, new THREE.CylinderGeometry(0.3, 0.3, 0.05, 12), '#e8b83a', 0.8, 1.35, 1.52,
-    { rx: Math.PI / 2, emissive: '#c9971f', ei: 0.8 });
+  // Thiên nhãn tỏa sáng theo nhịp
+  anim(add(g, new THREE.CylinderGeometry(0.3, 0.3, 0.05, 12), '#e8b83a', 0.8, 1.35, 1.52,
+    { rx: Math.PI / 2, emissive: '#c9971f', ei: 0.8 }),
+    { type: 'pulse', amp: 1.4, speed: 1.8 });
   return g;
 }
 
@@ -623,16 +696,18 @@ function dongthap() { // Sen Tháp Mười
   for (const [x, z, r] of [[-1.6, 0.9, 0.62], [1.4, 1.2, 0.5], [-0.6, -1.5, 0.55], [1.8, -0.8, 0.45]]) {
     cyl(g, r, r, 0.06, '#3f7a4a', x, 0.14, z, { seg: 12 });
   }
-  cyl(g, 0.09, 0.11, 1.9, '#3f7a4a', 0, 1.05, 0, { seg: 6 });
-  // đài sen + hai lớp cánh
-  cyl(g, 0.4, 0.25, 0.35, '#d8c23a', 0, 2.25, 0, { seg: 9, emissive: '#a8841f', ei: 0.4 });
+  anim(cyl(g, 0.09, 0.11, 1.9, '#3f7a4a', 0, 1.05, 0, { seg: 6 }), { type: 'sway', amp: 0.03, speed: 1.1 });
+  // đài sen phát sáng + hai lớp cánh "thở"
+  anim(cyl(g, 0.4, 0.25, 0.35, '#d8c23a', 0, 2.25, 0, { seg: 9, emissive: '#a8841f', ei: 0.4 }),
+    { type: 'pulse', amp: 0.8, speed: 1.2 });
   for (let ring = 0; ring < 2; ring++) {
     const n = 7 + ring * 3, rr = 0.55 + ring * 0.4, ry = 2.15 - ring * 0.22;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + ring * 0.3;
-      add(g, new THREE.SphereGeometry(0.3, 8, 6), ring ? '#e089b0' : '#d867a0',
+      anim(add(g, new THREE.SphereGeometry(0.3, 8, 6), ring ? '#e089b0' : '#d867a0',
         Math.cos(a) * rr, ry, Math.sin(a) * rr,
-        { sx: 0.55, sy: 1.35, sz: 0.32, ry: -a, rz: (ring ? 0.85 : 0.5), emissive: '#b0447e', ei: 0.25 });
+        { sx: 0.55, sy: 1.35, sz: 0.32, ry: -a, rz: (ring ? 0.85 : 0.5), emissive: '#b0447e', ei: 0.25 }),
+        { type: 'breathe', amp: 0.05, speed: 1.2, phase: ring * 1.6 });
     }
   }
   cone(g, 0.2, 0.5, '#d867a0', -1.6, 0.42, 0.9, { seg: 7, emissive: '#b0447e', ei: 0.3 });
@@ -670,7 +745,8 @@ function camau() { // Đất Mũi — biểu tượng con tàu
   }
   // mốc tọa độ — con tàu với cánh buồm căng gió
   box(g, 2.2, 0.5, 0.9, '#d8d2c2', 0.7, 0.75, 0.6);
-  add(g, new THREE.ConeGeometry(0.9, 2.6, 4), '#e8e2d0', 0.7, 2.3, 0.6, { sz: 0.14, emissive: '#c9beA8', ei: 0.15 });
+  anim(add(g, new THREE.ConeGeometry(0.9, 2.6, 4), '#e8e2d0', 0.7, 2.3, 0.6, { sz: 0.14, emissive: '#c9beA8', ei: 0.15 }),
+    { type: 'flutter', amp: 0.04, speed: 3.2 });
   box(g, 1.15, 0.3, 0.12, '#b8452e', 0.7, 1.25, 1.02);
   return g;
 }
