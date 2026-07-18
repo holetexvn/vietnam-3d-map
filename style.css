@@ -213,6 +213,130 @@ body {
   outline-offset: 2px;
 }
 
+/* ── Phim 55 ngày đêm ── */
+body.film .masthead,
+body.film .hint,
+body.film .train-btn,
+body.film .card { display: none; }
+
+#film-ui { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+
+.film-date {
+  position: fixed;
+  top: clamp(22px, 4.5vh, 50px);
+  right: clamp(22px, 4vw, 56px);
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 179, 92, 0.35);
+  border-radius: 4px;
+  background: rgba(13, 9, 6, 0.72);
+  font-size: clamp(14px, 1.5vw, 22px);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #ffb35c;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.film-date.show { opacity: 1; }
+
+.film-caption {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(48px, 9vh, 96px);
+  transform: translateX(-50%);
+  max-width: 82vw;
+  padding: 10px 22px;
+  border-left: 3px solid #ffb35c;
+  background: rgba(13, 9, 6, 0.85);
+  font-size: clamp(15px, 1.7vw, 26px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #f5efe4;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+.film-caption.show { opacity: 1; }
+
+.film-title {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 1.1s ease;
+}
+
+.film-title.show { opacity: 1; }
+
+.film-title-eyebrow {
+  font-size: clamp(13px, 1.4vw, 20px);
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  color: #ffb35c;
+  margin-bottom: 14px;
+}
+
+.film-title h2 {
+  font-size: clamp(40px, 7vw, 110px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #f5efe4;
+  text-shadow: 0 6px 44px rgba(255, 90, 36, 0.5);
+}
+
+.film-end {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+
+.film-end.show { opacity: 1; }
+
+.film-end h2 {
+  font-size: clamp(30px, 5.2vw, 84px);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #f5efe4;
+  text-shadow: 0 6px 48px rgba(255, 90, 36, 0.65);
+}
+
+.film-end p {
+  margin-top: 12px;
+  font-size: clamp(16px, 2vw, 30px);
+  letter-spacing: 0.4em;
+  color: #ffb35c;
+}
+
+.film-note {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(12px, 2.2vh, 24px);
+  transform: translateX(-50%);
+  font-size: clamp(9px, 0.85vw, 13px);
+  letter-spacing: 0.06em;
+  color: rgba(143, 163, 176, 0.85);
+  white-space: nowrap;
+}
+
+.film-fade {
+  position: fixed;
+  inset: 0;
+  background: #070d12;
+  opacity: 1;
+  transition: opacity 2s ease;
+  pointer-events: none;
+}
+
+.film-fade.clear { opacity: 0; }
+
 /* ── Màn hình chờ ── */
 .loader {
   position: fixed;

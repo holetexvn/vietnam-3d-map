@@ -6,11 +6,13 @@ import {
   RAIL_WAYPOINTS, STATIONS, SEA_TRIPS,
   createTrain, placeTrain, createRailway, createShip, createSeaTrail, placeShip,
 } from './train.js';
+import { createFilm } from './film1975.js';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const urlParams = new URLSearchParams(location.search);
 const demoMode = urlParams.has('demo');
 const trainMode = urlParams.has('train');
+const filmMode = urlParams.get('film') === '1975';
 
 // ── Chiếu tọa độ: kinh/vĩ độ → mặt phẳng (x đông, z nam) ─────
 const LON0 = 106.2, LAT0 = 16.2, SCALE = 9;
@@ -49,7 +51,8 @@ const HOME_TARGET = new THREE.Vector3(4, 0, 8);
 camera.position.copy(reducedMotion ? HOME_POS : new THREE.Vector3(0, 300, 30));
 
 // ── Ánh sáng ─────────────────────────────────────────────────
-scene.add(new THREE.HemisphereLight('#9fc8e8', '#1c3044', 1.0));
+const hemi = new THREE.HemisphereLight('#9fc8e8', '#1c3044', 1.0);
+scene.add(hemi);
 
 const key = new THREE.DirectionalLight('#ffd9a0', 2.4);
 key.position.set(90, 130, 60);
@@ -765,11 +768,12 @@ function animate() {
     posAttr.needsUpdate = true;
   }
 
+  if (film) film.step(dt);
   journeyStep(dt, t);
   demoStep(dt);
 
   // Hover raycast — chỉ trên thiết bị có con trỏ thật; cảm ứng dùng chạm
-  if (!coarsePointer && !demo && !journey && introT >= 0.98 && !flight) {
+  if (!coarsePointer && !demo && !journey && !film && introT >= 0.98 && !flight) {
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(hitMeshes, false);
     let idx = hits.length ? hits[0].object.userData.provinceIdx : -1;
@@ -829,6 +833,18 @@ addEventListener('resize', () => {
 
 trainBtn.addEventListener('click', startJourney);
 if (demoMode) trainBtn.classList.add('hidden');
+
+// Phim 55 ngày đêm
+let film = null;
+if (filmMode) {
+  introT = 1;
+  film = createFilm({
+    scene, camera, controls, provinceGroups, PROVINCE_SHAPES, px, pz, DEPTH,
+    renderer, sea: seaMat,
+    lights: { key, hemi, rim },
+  });
+  film.start();
+}
 if (trainMode) {
   // quay video: bỏ màn hạ camera, tàu tự lăn bánh sau 1 nhịp
   introT = 1;
