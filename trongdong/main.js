@@ -316,9 +316,11 @@ scene.add(floor);
 
 // ── Texture patin đồng (thủ tục — lốm đốm oxi hóa) ───────────
 function patinaBase(ctx2d, S) {
-  ctx2d.fillStyle = '#59695f';
+  // tông lấy theo ảnh chụp hiện vật thật (public domain, VuThiAnh 2009):
+  // đồng thẫm nâu-xám, loang xanh rêu oxi hóa, ánh nâu đất
+  ctx2d.fillStyle = '#3a3f38';
   ctx2d.fillRect(0, 0, S, S);
-  const tones = ['#4e6058', '#63756a', '#556a66', '#6d7a68', '#5d6a52', '#4a5a56', '#71806f'];
+  const tones = ['#31362f', '#434a3f', '#3c443c', '#4a4a3d', '#333c37', '#484238', '#3f4a42'];
   for (let i = 0; i < 4200; i++) {
     ctx2d.fillStyle = tones[(Math.random() * tones.length) | 0];
     ctx2d.globalAlpha = 0.05 + Math.random() * 0.1;
@@ -327,10 +329,10 @@ function patinaBase(ctx2d, S) {
     ctx2d.arc(Math.random() * S, Math.random() * S, r, 0, Math.PI * 2);
     ctx2d.fill();
   }
-  // vết đồng lộ ánh kim + gỉ nâu
-  for (let i = 0; i < 700; i++) {
-    ctx2d.fillStyle = Math.random() < 0.55 ? '#7d8a6e' : '#6a5c48';
-    ctx2d.globalAlpha = 0.05 + Math.random() * 0.08;
+  // vết đồng lộ ánh + gỉ xanh rêu đậm
+  for (let i = 0; i < 800; i++) {
+    ctx2d.fillStyle = Math.random() < 0.5 ? '#5c5a44' : '#2e4a3c';
+    ctx2d.globalAlpha = 0.05 + Math.random() * 0.09;
     const r = 1 + Math.random() * (S * 0.006);
     ctx2d.beginPath();
     ctx2d.arc(Math.random() * S, Math.random() * S, r, 0, Math.PI * 2);
@@ -340,186 +342,64 @@ function patinaBase(ctx2d, S) {
 }
 
 // ── Dựng texture MẶT TRỐNG: patin + hoa văn khắc chìm ────────
-const svgImg = new Image();
-svgImg.src = 'assets/ngoclu-face.svg';
+// Bản dập mặt trống (bản rập mực từ hiện vật — nét trắng = hoa văn NỔI)
+const diagImg = new Image();
+diagImg.src = 'assets/ngoclu-diagram.gif';
 
 function buildFaceTextures() {
-  const S = 4096;
+  const S = 2048; // bản dập gốc 500px — dựng 2048 để giữ nét mềm khi phóng
   const cx = S / 2;
-  const R = S * 0.478; // mép hoa văn cách mép mặt một chút
 
-  // lớp hoa văn (đen trên trong suốt) — dùng chung cho albedo lẫn bump
-  const pat = document.createElement('canvas');
-  pat.width = pat.height = S;
-  const p = pat.getContext('2d');
-
-  // 1) bản vẽ vector (chim bay, chim đứng, người múa) — phần chính xác nhất
-  const svgR = R * 0.985;
-  p.drawImage(svgImg, cx - svgR, cx - svgR, svgR * 2, svgR * 2);
-
-  // 2) che ngôi sao 12 cánh sai của bản vẽ
-  p.globalCompositeOperation = 'destination-out';
-  p.beginPath();
-  p.arc(cx, cx, R * 0.315, 0, Math.PI * 2);
-  p.fill();
-
-  // 2b) vành giữa của bản vẽ thiếu HƯƠU → xóa và dệt lại đầy đủ
-  p.beginPath();
-  p.arc(cx, cx, R * 0.665, 0, Math.PI * 2);
-  p.arc(cx, cx, R * 0.548, 0, Math.PI * 2, true);
-  p.fill();
-
-  // 2c) khoét hai cung đối xứng ở vành sinh hoạt để đặt nhà sàn + giã gạo
-  //     (bố cục hai nửa đối xứng — đúng cấu trúc băng người của trống thật)
-  const wedge = (aMid, half) => {
-    p.beginPath();
-    p.arc(cx, cx, R * 0.497, aMid - half, aMid + half);
-    p.arc(cx, cx, R * 0.362, aMid + half, aMid - half, true);
-    p.closePath();
-    p.fill();
-  };
-  wedge(Math.PI / 2, 0.44);
-  wedge(-Math.PI / 2, 0.44);
-  p.globalCompositeOperation = 'source-over';
-
-  // 2d) dệt vành hươu–chim: nhóm [hươu, hươu, chim đứng] lặp quanh vành
-  {
-    const rr = R * 0.6, scale = R * 0.052;
-    const slots = 24;
-    for (let i = 0; i < slots; i++) {
-      const th = (i / slots) * Math.PI * 2;
-      const x = cx + Math.cos(th) * rr, y = cx + Math.sin(th) * rr;
-      const rot = th + Math.PI / 2;
-      const motif = i % 3 === 2 ? BIRD_STAND : DEER;
-      stampMotif(p, motif, x, y, rot, motif === DEER ? scale : scale * 0.85);
-    }
+  // 1) chuẩn hóa bản dập: lấy kênh sáng làm "mặt nạ hoa văn nổi"
+  const mask = document.createElement('canvas');
+  mask.width = mask.height = S;
+  const m = mask.getContext('2d');
+  m.imageSmoothingEnabled = true;
+  m.imageSmoothingQuality = 'high';
+  // bản dập gốc: hình tròn hoa văn chiếm gần trọn khung 500px
+  m.drawImage(diagImg, 0, 0, S, S);
+  const d = m.getImageData(0, 0, S, S);
+  const px = d.data;
+  for (let i = 0; i < px.length; i += 4) {
+    // độ sáng → alpha (nét trắng giữ lại, nền đen trong suốt)
+    const lum = (px[i] + px[i + 1] + px[i + 2]) / 3;
+    px[i] = px[i + 1] = px[i + 2] = 255;
+    px[i + 3] = lum;
   }
+  m.putImageData(d, 0, 0);
 
-  // 2e) đặt nhà sàn + giã gạo chày đôi vào hai cung đã khoét
-  for (const aMid of [Math.PI / 2, -Math.PI / 2]) {
-    const rr = R * 0.432, scale = R * 0.055;
-    for (const [off, motif, k] of [[-0.21, HOUSE, 1], [0.21, POUNDING, 0.92]]) {
-      const th = aMid + off;
-      const x = cx + Math.cos(th) * rr, y = cx + Math.sin(th) * rr;
-      stampMotif(p, motif, x, y, th + Math.PI / 2, scale * k);
-    }
-  }
-
-  // 3) NGÔI SAO 14 CÁNH đúng mô tả Cục Di sản văn hóa — đúc NỔI,
-  //    nên chỉ vẽ đường viền vào lớp khắc; phần nổi xử lý riêng bên dưới
-  const rOut = R * 0.29, rIn = R * 0.135;
-  const starPath = (ctx2d) => {
-    ctx2d.beginPath();
-    for (let i = 0; i < 28; i++) {
-      const a = (i / 28) * Math.PI * 2 - Math.PI / 2;
-      const r = i % 2 === 0 ? rOut : rIn;
-      const x = cx + Math.cos(a) * r, y = cx + Math.sin(a) * r;
-      i === 0 ? ctx2d.moveTo(x, y) : ctx2d.lineTo(x, y);
-    }
-    ctx2d.closePath();
-  };
-  p.strokeStyle = '#000';
-  p.fillStyle = '#000';
-  p.lineWidth = S * 0.0022;
-  starPath(p);
-  p.stroke();
-  // họa tiết lông công xen giữa các cánh sao (chấm + vạch tỏa)
-  for (let i = 0; i < 14; i++) {
-    const a = ((i + 0.5) / 14) * Math.PI * 2 - Math.PI / 2;
-    const rr = rIn + (rOut - rIn) * 0.62;
-    const x = cx + Math.cos(a) * rr, y = cx + Math.sin(a) * rr;
-    p.beginPath();
-    p.arc(x, y, S * 0.006, 0, Math.PI * 2);
-    p.fill();
-  }
-  // vòng quanh sao
-  p.lineWidth = S * 0.0022;
-  p.beginPath();
-  p.arc(cx, cx, R * 0.315, 0, Math.PI * 2);
-  p.stroke();
-
-  // 4) các vành hình học dựng bằng code (đúng loại hoa văn theo dsvh.gov.vn)
-  const circle = (r, w) => {
-    p.lineWidth = w;
-    p.beginPath();
-    p.arc(cx, cx, r, 0, Math.PI * 2);
-    p.stroke();
-  };
-  // vòng phân băng
-  [0.36, 0.5, 0.545, 0.665, 0.71, 0.875, 0.92].forEach((f) => circle(R * f, S * 0.0018));
-  // vòng tròn chấm giữa có tiếp tuyến (hai vành)
-  for (const f of [0.525, 0.895]) {
-    const rr = R * f, n = Math.round(90 * f);
-    p.lineWidth = S * 0.0013;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const x = cx + Math.cos(a) * rr, y = cx + Math.sin(a) * rr;
-      p.beginPath();
-      p.arc(x, y, S * 0.0052, 0, Math.PI * 2);
-      p.stroke();
-      p.beginPath();
-      p.arc(x, y, S * 0.0012, 0, Math.PI * 2);
-      p.fill();
-    }
-  }
-  // văn răng cưa (vành ngoài cùng, hai lớp răng đối đỉnh)
-  {
-    const rr = R * 0.955, h = R * 0.028, n = 180;
-    for (let i = 0; i < n; i++) {
-      const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2, am = (a0 + a1) / 2;
-      p.beginPath();
-      p.moveTo(cx + Math.cos(a0) * rr, cx + Math.sin(a0) * rr);
-      p.lineTo(cx + Math.cos(am) * (rr + h), cx + Math.sin(am) * (rr + h));
-      p.lineTo(cx + Math.cos(a1) * rr, cx + Math.sin(a1) * rr);
-      p.closePath();
-      p.fill();
-      p.beginPath();
-      p.moveTo(cx + Math.cos(a0) * (rr + h * 2), cx + Math.sin(a0) * (rr + h * 2));
-      p.lineTo(cx + Math.cos(am) * (rr + h), cx + Math.sin(am) * (rr + h));
-      p.lineTo(cx + Math.cos(a1) * (rr + h * 2), cx + Math.sin(a1) * (rr + h * 2));
-      p.closePath();
-      p.fill();
-    }
-  }
-
-  // ALBEDO: patin + hoa văn hằn màu đồng sẫm
+  // 2) ALBEDO: patin đồng thẫm + hoa văn nổi hơi ánh đồng (bị chạm sờ qua thời gian)
   const albedo = document.createElement('canvas');
   albedo.width = albedo.height = S;
   const a2 = albedo.getContext('2d');
   patinaBase(a2, S);
-  a2.globalAlpha = 0.78;
-  a2.drawImage(pat, 0, 0);
+  a2.globalAlpha = 0.34;
+  a2.globalCompositeOperation = 'screen';
+  a2.drawImage(mask, 0, 0);
+  a2.globalCompositeOperation = 'source-over';
+  // phủ nhẹ tông đồng ấm lên phần nổi
+  a2.globalAlpha = 0.16;
+  a2.fillStyle = '#8a7a4e';
+  a2.globalCompositeOperation = 'source-atop';
+  a2.fillRect(0, 0, S, S);
+  a2.globalCompositeOperation = 'source-over';
   a2.globalAlpha = 1;
-  // sao nổi: mặt đồng lộ sáng hơn nền patin (bị chạm tay/đánh bóng qua thời gian)
-  a2.fillStyle = '#75846f';
-  starPath(a2);
-  a2.fill();
-  a2.strokeStyle = 'rgba(20,26,22,0.55)';
-  a2.lineWidth = S * 0.0022;
-  starPath(a2);
-  a2.stroke();
 
-  // BUMP: nền xám + rãnh khắc tối (lõm xuống)
+  // 3) BUMP: nền thấp, hoa văn NỔI cao (đúng bản chất văn đúc nổi)
   const bump = document.createElement('canvas');
   bump.width = bump.height = S;
   const b2 = bump.getContext('2d');
-  b2.fillStyle = '#8a8a8a';
+  b2.fillStyle = '#6a6a6a';
   b2.fillRect(0, 0, S, S);
-  // nhám bề mặt nhẹ
-  for (let i = 0; i < 2600; i++) {
-    b2.fillStyle = Math.random() < 0.5 ? '#7f7f7f' : '#949494';
-    b2.globalAlpha = 0.25;
+  for (let i = 0; i < 2200; i++) {
+    b2.fillStyle = Math.random() < 0.5 ? '#636363' : '#727272';
+    b2.globalAlpha = 0.3;
     b2.beginPath();
-    b2.arc(Math.random() * S, Math.random() * S, 1 + Math.random() * 20, 0, Math.PI * 2);
+    b2.arc(Math.random() * S, Math.random() * S, 1 + Math.random() * 18, 0, Math.PI * 2);
     b2.fill();
   }
-  b2.globalAlpha = 0.95;
-  b2.drawImage(pat, 0, 0);
   b2.globalAlpha = 1;
-  // sao ĐÚC NỔI: sáng = cao trong bump map
-  b2.fillStyle = '#e6e6e6';
-  starPath(b2);
-  b2.fill();
+  b2.drawImage(mask, 0, 0); // trắng = cao
 
   const maxAniso = renderer.capabilities.getMaxAnisotropy();
   const tAlbedo = new THREE.CanvasTexture(albedo);
@@ -571,7 +451,7 @@ function buildDrum() {
   const faceMat = new THREE.MeshPhysicalMaterial({
     map: tAlbedo,
     bumpMap: tBump,
-    bumpScale: 3.2,            // nét tối = khắc CHÌM, sao sáng = đúc NỔI
+    bumpScale: 2.6,            // hoa văn đúc NỔI theo bản dập
     metalness: 0.72,
     roughness: 0.46,
     clearcoat: 0.18,
@@ -621,7 +501,7 @@ const rings = [
     act: 0, zoom: [0, 8.5], r: 0,
     name: 'Tâm mặt trống',
     title: 'Ngôi sao 14 cánh',
-    body: 'Chính giữa mặt trống đúc nổi ngôi sao 14 cánh quanh núm tròn — nơi gõ chày khi đánh trống; xen giữa các cánh sao là họa tiết hình lông công. Bản vẽ tham khảo thể hiện sao 12 cánh đã được hiệu chỉnh lại đúng 14 cánh theo hồ sơ bảo vật.',
+    body: 'Chính giữa mặt trống đúc nổi ngôi sao 14 cánh quanh núm tròn — nơi gõ chày khi đánh trống; xen giữa các cánh sao là họa tiết hình lông công.',
     src: SRC_DSVH,
   },
   {
@@ -632,14 +512,14 @@ const rings = [
     src: SRC_DSVH,
   },
   {
-    act: 0, zoom: [13.5, 19], r: 5.8,
+    act: 0, zoom: [13.5, 19], r: 6.2,
     name: 'Vành muông thú',
     title: 'Hươu và đàn chim',
     body: 'Băng hình giữa của trống khắc hươu đang đi cùng chim mỏ ngắn bay và chim mỏ dài đứng — thiên nhiên quen thuộc của cư dân trồng lúa nước châu thổ sông Hồng.',
     src: SRC_DSVH,
   },
   {
-    act: 0, zoom: [19, 27], r: 7.5,
+    act: 0, zoom: [19, 27], r: 7.8,
     name: 'Vành ngoài',
     title: 'Đàn chim mỏ dài tung cánh',
     body: 'Vành ngoài là đàn chim mỏ dài đang bay ngược chiều kim đồng hồ — hình tượng quen gọi là "chim Lạc", biểu tượng của văn hóa Đông Sơn. Hình chim trong mô phỏng lấy theo bản vẽ khảo cổ, giữ nguyên dáng mỏ dài, mào dài và cánh xòe đặc trưng.',
@@ -806,9 +686,9 @@ addMarker('star14', 2.1, -90);
 addMarker('dancer', 4.16, 20);
 addMarker('house', 4.16, 105);
 addMarker('pounding', 4.16, 65);
-addMarker('deer', 5.74, -35);
-addMarker('birdStand', 5.74, -5);
-addMarker('birdFly', 7.46, 150);
+addMarker('deer', 6.2, -35);
+addMarker('birdStand', 6.2, -5);
+addMarker('birdFly', 7.8, 150);
 
 // tượng đồng 3D nổi trước ống kính
 scene.add(camera);
@@ -826,7 +706,7 @@ let showcase = null; // { obj, opening }
 function buildStatue(entry) {
   const g = new THREE.Group();
   const mat = new THREE.MeshPhysicalMaterial({
-    color: '#7d8b74', metalness: 0.82, roughness: 0.34,
+    color: '#6b7258', metalness: 0.82, roughness: 0.34,
     clearcoat: 0.25, clearcoatRoughness: 0.4, envMapIntensity: 1.15,
   });
   for (const draw of entry.motif.shapes) {
@@ -989,11 +869,11 @@ window.__dbg = () => ({
   frame: renderer.info.render.frame,
 });
 
-svgImg.onload = () => {
+diagImg.onload = () => {
   buildDrum();
   animate();
 };
-svgImg.onerror = () => {
+diagImg.onerror = () => {
   console.error('Không tải được bản vẽ hoa văn');
   buildDrum();
   animate();
