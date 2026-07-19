@@ -343,28 +343,45 @@ function patinaBase(ctx2d, S) {
 
 // ── Dựng texture MẶT TRỐNG: patin + hoa văn khắc chìm ────────
 // Bản dập mặt trống (bản rập mực từ hiện vật — nét trắng = hoa văn NỔI)
-const diagImg = new Image();
-diagImg.src = 'assets/ngoclu-diagram.gif';
+const diagImg = new Image(); // nạp ở cuối file: ưu tiên bản 4K
 
 function buildFaceTextures() {
-  const S = 2048; // bản dập gốc 500px — dựng 2048 để giữ nét mềm khi phóng
+  // dựng 4096: phóng mượt + siết ngưỡng gắt = biên nét sắc kiểu vector
+  const S = 4096;
   const cx = S / 2;
 
-  // 1) chuẩn hóa bản dập: lấy kênh sáng làm "mặt nạ hoa văn nổi"
+  // 1) phóng đại lũy tiến (mỗi bước ≤2×) — nét mềm mượt hơn phóng một phát
+  let stage = document.createElement('canvas');
+  let sw = diagImg.naturalWidth;
+  stage.width = stage.height = sw;
+  let sctx = stage.getContext('2d');
+  sctx.drawImage(diagImg, 0, 0, sw, sw);
+  while (sw < S) {
+    const nw = Math.min(sw * 2, S);
+    const next = document.createElement('canvas');
+    next.width = next.height = nw;
+    const nctx = next.getContext('2d');
+    nctx.imageSmoothingEnabled = true;
+    nctx.imageSmoothingQuality = 'high';
+    nctx.drawImage(stage, 0, 0, nw, nw);
+    stage = next;
+    sctx = nctx;
+    sw = nw;
+  }
+
+  // 2) mặt nạ hoa văn: kéo tương phản chữ S để nét đanh lại
   const mask = document.createElement('canvas');
   mask.width = mask.height = S;
   const m = mask.getContext('2d');
-  m.imageSmoothingEnabled = true;
-  m.imageSmoothingQuality = 'high';
-  // bản dập gốc: hình tròn hoa văn chiếm gần trọn khung 500px
-  m.drawImage(diagImg, 0, 0, S, S);
+  m.drawImage(stage, 0, 0, S, S);
   const d = m.getImageData(0, 0, S, S);
   const px = d.data;
   for (let i = 0; i < px.length; i += 4) {
-    // độ sáng → alpha (nét trắng giữ lại, nền đen trong suốt)
     const lum = (px[i] + px[i + 1] + px[i + 2]) / 3;
+    // siết ngưỡng gắt: vùng chuyển xám do phóng đại → biên nét dứt khoát
+    const a = Math.max(0, Math.min(255, (lum - 104) * 3.4 + 128));
     px[i] = px[i + 1] = px[i + 2] = 255;
-    px[i + 3] = lum;
+    px[i + 3] = a;
   }
   m.putImageData(d, 0, 0);
 
@@ -373,7 +390,7 @@ function buildFaceTextures() {
   albedo.width = albedo.height = S;
   const a2 = albedo.getContext('2d');
   patinaBase(a2, S);
-  a2.globalAlpha = 0.34;
+  a2.globalAlpha = 0.26;
   a2.globalCompositeOperation = 'screen';
   a2.drawImage(mask, 0, 0);
   a2.globalCompositeOperation = 'source-over';
@@ -869,12 +886,17 @@ window.__dbg = () => ({
   frame: renderer.info.render.frame,
 });
 
+// ưu tiên bản dập 4K (AI upscale); không có thì dùng bản gốc 500px
 diagImg.onload = () => {
   buildDrum();
   animate();
 };
 diagImg.onerror = () => {
-  console.error('Không tải được bản vẽ hoa văn');
-  buildDrum();
-  animate();
+  diagImg.onerror = () => {
+    console.error('Không tải được bản dập hoa văn');
+    buildDrum();
+    animate();
+  };
+  diagImg.src = 'assets/ngoclu-diagram.gif';
 };
+diagImg.src = 'assets/ngoclu-diagram-4k.jpg';
